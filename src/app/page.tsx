@@ -1,101 +1,244 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import Sidebar from "@/components/Sidebar";
+import TableBrowser from "@/components/TableBrowser";
+import SqlEditor from "@/components/SqlEditor";
+import UndoBar from "@/components/UndoBar";
+import { useHistory } from "@/lib/history";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [activeTable, setActiveTable] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"browser" | "sql">("browser");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const { past, future, dispatchUndo, dispatchRedo } = useHistory();
+
+  const triggerRefresh = useCallback(() => {
+    setRefreshTrigger((n) => n + 1);
+  }, []);
+
+  const executeUndo = useCallback(async () => {
+    if (past.length === 0) return;
+    const entry = past[past.length - 1];
+    try {
+      switch (entry.type) {
+        case "editCell": {
+          await fetch("/api/rows", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              table: entry.table,
+              idColumn: entry.idColumn,
+              id: entry.rowId,
+              column: entry.column,
+              value: entry.oldValue,
+            }),
+          });
+          break;
+        }
+        case "deleteRow": {
+          await fetch("/api/rows", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              table: entry.table,
+              data: entry.deletedRowData,
+            }),
+          });
+          break;
+        }
+        case "addRow": {
+          await fetch(
+            `/api/rows?table=${encodeURIComponent(entry.table)}&idColumn=${encodeURIComponent(entry.idColumn!)}&id=${encodeURIComponent(entry.addedRowId!)}`,
+            { method: "DELETE" }
+          );
+          break;
+        }
+        case "createTable": {
+          await fetch(`/api/tables?table=${encodeURIComponent(entry.table)}`, { method: "DELETE" });
+          break;
+        }
+        case "dropTable": {
+          if (entry.tableSchema && entry.tableSchema.length > 0) {
+
+            await fetch("/api/tables", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: entry.table,
+                columns: entry.tableSchema.map((c: any) => ({
+                  name: c.column_name,
+                  type: c.data_type,
+                })),
+              }),
+            });
+            if (entry.allTableData && entry.allTableData.length > 0) {
+              for (const row of entry.allTableData) {
+                await fetch("/api/rows", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ table: entry.table, data: row }),
+                });
+              }
+            }
+          }
+          break;
+        }
+      }
+      dispatchUndo();
+      setActiveTable(entry.table);
+      triggerRefresh();
+    } catch (e) {
+      console.error("Undo failed:", e);
+    }
+  }, [past, dispatchUndo, triggerRefresh]);
+
+  const executeRedo = useCallback(async () => {
+    if (future.length === 0) return;
+    const entry = future[0];
+    try {
+      switch (entry.type) {
+        case "editCell": {
+          await fetch("/api/rows", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              table: entry.table,
+              idColumn: entry.idColumn,
+              id: entry.rowId,
+              column: entry.column,
+              value: entry.newValue,
+            }),
+          });
+          break;
+        }
+        case "deleteRow": {
+          await fetch(
+            `/api/rows?table=${encodeURIComponent(entry.table)}&idColumn=${encodeURIComponent(entry.idColumn!)}&id=${encodeURIComponent(entry.rowId!)}`,
+            { method: "DELETE" }
+          );
+          break;
+        }
+        case "addRow": {
+          await fetch("/api/rows", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ table: entry.table, data: entry.addedRowData }),
+          });
+          break;
+        }
+        case "createTable": {
+          await fetch("/api/tables", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: entry.table, columns: entry.columns }),
+          });
+          break;
+        }
+        case "dropTable": {
+          if (entry.tableSchema && entry.tableSchema.length > 0) {
+
+            await fetch("/api/tables", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: entry.table,
+                columns: entry.tableSchema.map((c: any) => ({
+                  name: c.column_name,
+                  type: c.data_type,
+                })),
+              }),
+            });
+            if (entry.allTableData && entry.allTableData.length > 0) {
+              for (const row of entry.allTableData) {
+                await fetch("/api/rows", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ table: entry.table, data: row }),
+                });
+              }
+            }
+          }
+          break;
+        }
+      }
+      dispatchRedo();
+      setActiveTable(entry.table);
+      triggerRefresh();
+    } catch (e) {
+      console.error("Redo failed:", e);
+    }
+  }, [future, dispatchRedo, triggerRefresh]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        executeUndo();
+      }
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === "y" || (e.key === "z" && e.shiftKey))
+      ) {
+        e.preventDefault();
+        executeRedo();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [executeUndo, executeRedo]);
+
+  return (
+    <div className="h-screen flex flex-col bg-bg text-white">
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar
+          activeTable={activeTable}
+          onSelectTable={setActiveTable}
+          refreshTrigger={refreshTrigger}
+        />
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Tabs */}
+          <div className="flex border-b border-border shrink-0">
+            <button
+              onClick={() => setActiveTab("browser")}
+              className={`px-4 py-2 text-xs font-medium uppercase tracking-wider transition-colors ${
+                activeTab === "browser"
+                  ? "text-white border-b border-white"
+                  : "text-muted hover:text-white"
+              }`}
+            >
+              Table Browser
+            </button>
+            <button
+              onClick={() => setActiveTab("sql")}
+              className={`px-4 py-2 text-xs font-medium uppercase tracking-wider transition-colors ${
+                activeTab === "sql"
+                  ? "text-white border-b border-white"
+                  : "text-muted hover:text-white"
+              }`}
+            >
+              SQL Editor
+            </button>
+          </div>
+
+          {/* Content */}
+          {activeTab === "browser" ? (
+            <TableBrowser
+            table={activeTable}
+            onRefreshTables={triggerRefresh}
+            onTableCreated={(name) => setActiveTable(name)}
+            onTableDropped={() => setActiveTable(null)}
+          />
+          ) : (
+            <SqlEditor />
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      {/* Undo/Redo bar at the bottom */}
+      <UndoBar />
     </div>
   );
 }
