@@ -28,7 +28,7 @@ A minimal, dark-themed Postgres database management tool built with Next.js 14 (
 - Node.js 18+
 - A Postgres database (e.g., [Neon](https://neon.tech), [Supabase](https://supabase.com), or local)
 
-### Setup
+### Setup (Windows)
 
 1. **Clone the repo**
 
@@ -37,15 +37,16 @@ A minimal, dark-themed Postgres database management tool built with Next.js 14 (
    cd vercel-team-db-manager
    ```
 
-2. **Install dependencies**
+2. **Run setup.bat** (double-click in File Explorer)
 
-   ```bash
-   npm install
-   ```
+   This will:
+   - Verify Node.js and npm are installed
+   - Install all dependencies from `package.json`
+   - Create a `.env.local` template if one doesn't exist
 
-3. **Configure environment**
+3. **Configure your database connection**
 
-   Create `.env.local` in the project root:
+   If `.env.local` wasn't created automatically, create it manually in the project root:
 
    ```env
    DATABASE_URL=postgresql://user:password@host:5432/dbname?sslmode=require
@@ -53,14 +54,23 @@ A minimal, dark-themed Postgres database management tool built with Next.js 14 (
 
    > For Neon, use the connection string from your Neon dashboard (it already includes `sslmode=require`).
 
-4. **Run the dev server**
+4. **Start the app**
+
+   Double-click `start.bat` or run:
 
    ```bash
    npm run dev
-   # or double-click start.bat on Windows
    ```
 
-   The app starts on `http://localhost:3000`. If port 3000 is busy, it auto-selects the next available port up to 3020.
+   The app opens at `http://localhost:3000`. If port 3000 is busy, it auto-selects the next available port up to 3020.
+
+### Setup (macOS / Linux / Manual)
+
+   ```bash
+   npm install
+   # create .env.local with your DATABASE_URL
+   npm run dev
+   ```
 
 ## Project Structure
 
