@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import TableBrowser from "@/components/TableBrowser";
 import SqlEditor from "@/components/SqlEditor";
+import SchemaViewer from "@/components/SchemaViewer";
 import UndoBar from "@/components/UndoBar";
 import { useHistory } from "@/lib/history";
 
 export default function Home() {
   const [activeTable, setActiveTable] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"browser" | "sql">("browser");
+  const [activeTab, setActiveTab] = useState<"browser" | "sql" | "schema">("browser");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const { past, future, dispatchUndo, dispatchRedo } = useHistory();
@@ -221,18 +222,37 @@ export default function Home() {
             >
               SQL Editor
             </button>
+            <button
+              onClick={() => setActiveTab("schema")}
+              className={`px-4 py-2 text-xs font-medium uppercase tracking-wider transition-colors ${
+                activeTab === "schema"
+                  ? "text-white border-b border-white"
+                  : "text-muted hover:text-white"
+              }`}
+            >
+              Schema
+            </button>
           </div>
 
           {/* Content */}
           {activeTab === "browser" ? (
             <TableBrowser
-            table={activeTable}
-            onRefreshTables={triggerRefresh}
-            onTableCreated={(name) => setActiveTable(name)}
-            onTableDropped={() => setActiveTable(null)}
-          />
-          ) : (
+              table={activeTable}
+              onRefreshTables={triggerRefresh}
+              onTableCreated={(name) => setActiveTable(name)}
+              onTableDropped={() => setActiveTable(null)}
+              refreshTrigger={refreshTrigger}
+            />
+          ) : activeTab === "sql" ? (
             <SqlEditor />
+          ) : (
+            <SchemaViewer
+              onTableClick={(name) => {
+                setActiveTable(name);
+                setActiveTab("browser");
+              }}
+              refreshTrigger={refreshTrigger}
+            />
           )}
         </div>
       </div>

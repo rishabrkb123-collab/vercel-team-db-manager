@@ -11,15 +11,18 @@ interface SidebarProps {
 export default function Sidebar({ activeTable, onSelectTable, refreshTrigger }: SidebarProps) {
   const [tables, setTables] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     fetch("/api/tables")
       .then((r) => r.json())
       .then((data) => {
-        if (data.tables) setTables(data.tables);
+        if (data.error) setError(data.error);
+        else if (data.tables) setTables(data.tables);
       })
-      .catch(() => {})
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [refreshTrigger]);
 
@@ -32,7 +35,10 @@ export default function Sidebar({ activeTable, onSelectTable, refreshTrigger }: 
         {loading && (
           <div className="px-3 py-2 text-xs text-muted">Loading...</div>
         )}
-        {!loading && tables.length === 0 && (
+        {!loading && error && (
+          <div className="px-3 py-2 text-xs text-red-400 break-words">{error}</div>
+        )}
+        {!loading && !error && tables.length === 0 && (
           <div className="px-3 py-2 text-xs text-muted">No tables found</div>
         )}
         {tables.map((t) => (

@@ -15,9 +15,10 @@ interface TableBrowserProps {
   onRefreshTables: () => void;
   onTableCreated?: (name: string) => void;
   onTableDropped?: () => void;
+  refreshTrigger: number;
 }
 
-export default function TableBrowser({ table, onRefreshTables, onTableCreated, onTableDropped }: TableBrowserProps) {
+export default function TableBrowser({ table, onRefreshTables, onTableCreated, onTableDropped, refreshTrigger }: TableBrowserProps) {
   const { push } = useHistory();
 
   const [columns, setColumns] = useState<Column[]>([]);
@@ -66,7 +67,7 @@ export default function TableBrowser({ table, onRefreshTables, onTableCreated, o
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshTrigger]);
 
   useEffect(() => {
     setShowAddForm(false);
@@ -115,6 +116,7 @@ export default function TableBrowser({ table, onRefreshTables, onTableCreated, o
         oldValue: oldVal,
         newValue: castValue(editValue, columns.find((c) => c.column_name === col)?.data_type),
       });
+      onRefreshTables();
     } catch (e: any) {
       setError(e.message);
     }
@@ -141,6 +143,7 @@ export default function TableBrowser({ table, onRefreshTables, onTableCreated, o
         rowId: idVal,
         deletedRowData: row,
       });
+      onRefreshTables();
     } catch (e: any) {
       setError(e.message);
     }
@@ -172,6 +175,7 @@ export default function TableBrowser({ table, onRefreshTables, onTableCreated, o
         addedRowId: result.row[idColumn],
         addedRowData: result.row,
       });
+      onRefreshTables();
       setShowAddForm(false);
       setNewRowData({});
     } catch (e: any) {
@@ -285,31 +289,36 @@ export default function TableBrowser({ table, onRefreshTables, onTableCreated, o
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
-        {rows.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted text-sm">
-            No rows in this table
-          </div>
-        ) : (
-          <table className="w-full text-sm font-mono">
-            <thead>
-              <tr className="border-b border-border bg-surface sticky top-0">
-                <th className="text-left py-2 px-3 text-muted font-medium text-xs w-10">#</th>
-                {columns.map((col) => (
-                  <th
-                    key={col.column_name}
-                    className="text-left py-2 px-3 text-muted font-medium text-xs whitespace-nowrap"
-                  >
-                    {col.column_name}
-                    <span className="ml-1.5 text-[10px] text-[#555]">
-                      {col.data_type}
-                    </span>
-                  </th>
-                ))}
-                <th className="text-left py-2 px-3 text-muted font-medium text-xs w-20">Actions</th>
+        <table className="w-full text-sm font-mono">
+          <thead>
+            <tr className="border-b border-border bg-surface sticky top-0">
+              <th className="text-left py-2 px-3 text-muted font-medium text-xs w-10">#</th>
+              {columns.map((col) => (
+                <th
+                  key={col.column_name}
+                  className="text-left py-2 px-3 text-muted font-medium text-xs whitespace-nowrap"
+                >
+                  {col.column_name}
+                  <span className="ml-1.5 text-[10px] text-[#555]">
+                    {col.data_type}
+                  </span>
+                </th>
+              ))}
+              <th className="text-left py-2 px-3 text-muted font-medium text-xs w-20">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length + 2}
+                  className="text-center py-8 text-muted text-sm"
+                >
+                  No rows in this table
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIdx) => (
+            ) : (
+              rows.map((row, rowIdx) => (
                 <tr key={rowIdx} className="border-b border-border hover:bg-[#1a1a1a]">
                   <td className="py-1 px-3 text-muted text-xs">{rowIdx + 1}</td>
                   {columns.map((col) => (
@@ -354,10 +363,10 @@ export default function TableBrowser({ table, onRefreshTables, onTableCreated, o
                     </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Add Row Modal */}
