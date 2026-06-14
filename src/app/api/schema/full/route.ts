@@ -6,9 +6,7 @@ function inferRelations(
 ) {
   const inferred: any[] = [];
 
-  for (const t of tables) {
-    const schema = t.table_schema;
-
+    for (const t of tables) {
     for (const col of t.columns) {
       const colName = col.column_name as string;
       if (!colName.endsWith("_id") || colName === "id") continue;
