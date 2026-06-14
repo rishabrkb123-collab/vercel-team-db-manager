@@ -10,8 +10,6 @@ interface Column {
 }
 
 interface ForeignKey {
-  table_schema: string;
-  table_name: string;
   column_name: string;
   foreign_table_schema: string;
   foreign_table_name: string;
@@ -101,7 +99,7 @@ export default function SchemaViewer({ onTableClick, refreshTrigger }: SchemaVie
 
   for (const l of layouts) {
     for (const fk of l.table.foreignKeys) {
-      const srcName = getTableKey(fk.table_schema, fk.table_name);
+      const srcName = getTableKey(l.table.table_schema, l.table.table_name);
       const tgtName = getTableKey(fk.foreign_table_schema, fk.foreign_table_name);
       const srcL = layouts.find((x) => x.table.display_name === srcName);
       const tgtL = layouts.find((x) => x.table.display_name === tgtName);
