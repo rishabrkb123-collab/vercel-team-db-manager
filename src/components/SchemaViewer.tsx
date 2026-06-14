@@ -73,14 +73,12 @@ export default function SchemaViewer({ onTableClick, refreshTrigger }: SchemaVie
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState({ x: PADDING, y: PADDING, scale: 0.85 });
   const [panning, setPanning] = useState(false);
-  const [debugInfo, setDebugInfo] = useState("");
   const dragRef = useRef({ startX: 0, startY: 0, viewX: 0, viewY: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    setDebugInfo("");
     fetch("/api/schema/full")
       .then((r) => r.json())
       .then((data) => {
@@ -90,8 +88,6 @@ export default function SchemaViewer({ onTableClick, refreshTrigger }: SchemaVie
         }
         if (data.tables) {
           setTables(data.tables);
-          const totalFK = data.tables.reduce((s: number, t: SchemaTable) => s + t.foreignKeys.length, 0);
-          setDebugInfo(`Tables: ${data.tables.length}, Total FKs declared: ${totalFK}`);
         }
       })
       .catch((e) => setError(e.message))
@@ -100,6 +96,7 @@ export default function SchemaViewer({ onTableClick, refreshTrigger }: SchemaVie
 
   const layouts = layout(tables);
 
+  const debugLines: string[] = [];
   const edges: { x1: number; y1: number; x2: number; y2: number; inferred?: boolean; label: string }[] = [];
 
   for (const l of layouts) {
@@ -109,14 +106,14 @@ export default function SchemaViewer({ onTableClick, refreshTrigger }: SchemaVie
       const srcL = layouts.find((x) => x.table.display_name === srcName);
       const tgtL = layouts.find((x) => x.table.display_name === tgtName);
       if (!srcL || !tgtL) {
-        setDebugInfo((d) => d + `\nMissing layout: ${srcName} -> ${tgtName}`);
+        debugLines.push(`Missing layout: ${srcName} -> ${tgtName}`);
         continue;
       }
 
       const srcCol = srcL.table.columns.findIndex((c) => c.column_name === fk.column_name);
       const tgtCol = tgtL.table.columns.findIndex((c) => c.column_name === fk.foreign_column_name);
       if (srcCol === -1 || tgtCol === -1) {
-        setDebugInfo((d) => d + `\nMissing col: ${fk.column_name} in ${srcName} or ${fk.foreign_column_name} in ${tgtName}`);
+        debugLines.push(`Missing col: ${fk.column_name} in ${srcName} or ${fk.foreign_column_name} in ${tgtName}`);
         continue;
       }
 
@@ -295,9 +292,9 @@ export default function SchemaViewer({ onTableClick, refreshTrigger }: SchemaVie
       </div>
 
       {/* Debug info */}
-      {debugInfo && (
+      {debugLines.length > 0 && (
         <div className="absolute top-3 left-3 text-[10px] font-mono text-yellow-400 bg-[#1a1a1a] px-2 py-1 rounded border border-border whitespace-pre-wrap max-w-md">
-          {debugInfo}
+          {debugLines.join("\n")}
         </div>
       )}
 
