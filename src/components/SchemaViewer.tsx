@@ -244,15 +244,17 @@ export default function SchemaViewer({ onTableClick, refreshTrigger }: SchemaVie
                 y1={conn!.y1}
                 x2={conn!.x2}
                 y2={conn!.y2}
-                stroke={conn!.inferred ? "#555" : "#6a9fb5"}
-                strokeWidth={1.5}
-                strokeDasharray={conn!.inferred ? "4 4" : "none"}
+                stroke={conn!.inferred ? "#777" : "#4fc3f7"}
+                strokeWidth={2.5}
+                strokeDasharray={conn!.inferred ? "6 4" : "none"}
+                opacity={0.8}
               />
               <circle
                 cx={conn!.x2}
                 cy={conn!.y2}
-                r={3}
-                fill={conn!.inferred ? "#555" : "#6a9fb5"}
+                r={4}
+                fill={conn!.inferred ? "#777" : "#4fc3f7"}
+                opacity={0.8}
               />
             </g>
           ))}
@@ -362,22 +364,28 @@ export default function SchemaViewer({ onTableClick, refreshTrigger }: SchemaVie
         </button>
       </div>
 
-      <div className="absolute top-3 right-3 text-xs text-muted bg-[#1a1a1a] px-2.5 py-1 rounded border border-border">
-        {tables.length} table{tables.length !== 1 ? "s" : ""}
+      <div className="absolute top-3 right-3 flex items-center gap-2 text-xs text-muted bg-[#1a1a1a] px-2.5 py-1 rounded border border-border">
+        <span>{tables.length} table{tables.length !== 1 ? "s" : ""}</span>
+        {connections.length > 0 && (
+          <>
+            <span className="w-px h-3 bg-border" />
+            <span className="text-white/60">{connections.length} relation{connections.length !== 1 ? "s" : ""}</span>
+          </>
+        )}
       </div>
 
       <div className="absolute bottom-3 left-3 flex items-center gap-3 text-[10px] text-muted">
         <span>{panning ? "Dragging..." : "Scroll to zoom · Drag to pan · Click a table to open"}</span>
         <span className="w-px h-3 bg-border" />
         <span className="flex items-center gap-1.5">
-          <svg width="20" height="2" viewBox="0 0 20 2">
-            <line x1="0" y1="1" x2="20" y2="1" stroke="#6a9fb5" strokeWidth="1.5" />
+          <svg width="22" height="3" viewBox="0 0 22 3">
+            <line x1="0" y1="1.5" x2="22" y2="1.5" stroke="#4fc3f7" strokeWidth="2.5" />
           </svg>
           FK
         </span>
         <span className="flex items-center gap-1.5">
-          <svg width="20" height="2" viewBox="0 0 20 2">
-            <line x1="0" y1="1" x2="20" y2="1" stroke="#555" strokeWidth="1.5" strokeDasharray="4 4" />
+          <svg width="22" height="3" viewBox="0 0 22 3">
+            <line x1="0" y1="1.5" x2="22" y2="1.5" stroke="#777" strokeWidth="2.5" strokeDasharray="6 4" />
           </svg>
           Inferred
         </span>

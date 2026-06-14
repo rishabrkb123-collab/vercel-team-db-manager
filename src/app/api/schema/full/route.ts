@@ -1,112 +1,39 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
-// Common singular-to-plural and plural-to-single mappings
-function guessTableName(columnName: string): string | null {
-  if (!columnName.endsWith("_id")) return null;
-  const base = columnName.slice(0, -3); // strip "_id"
-  const candidates = [base, base + "s", base + "es"];
-  if (base.endsWith("y")) {
-    candidates.push(base.slice(0, -1) + "ies");
-  }
-  return null; // will be resolved against actual table names
-}
-
 function inferRelations(
   tables: { table_schema: string; table_name: string; columns: any[] }[]
 ) {
-  const tableNames = new Set(
-    tables.map((t) =>
-      t.table_schema === "public" ? t.table_name : `${t.table_schema}.${t.table_name}`
-    )
-  );
-
-  const tableNamesPlural = new Set<string>();
-  const tableNamesSingular = new Map<string, string>();
-  for (const t of tables) {
-    const name = t.table_schema === "public" ? t.table_name : `${t.table_schema}.${t.table_name}`;
-    tableNames.add(name);
-    tableNamesPlural.add(name + "s");
-    tableNamesPlural.add(name + "es");
-    if (name.endsWith("s")) {
-      tableNamesSingular.set(name.slice(0, -1), name);
-    }
-    // Handle "ies" -> "y"
-    if (name.endsWith("ies")) {
-      tableNamesSingular.set(name.slice(0, -3) + "y", name);
-    }
-  }
-
   const inferred: any[] = [];
 
   for (const t of tables) {
-    const displayName =
-      t.table_schema === "public" ? t.table_name : `${t.table_schema}.${t.table_name}`;
+    const schema = t.table_schema;
 
     for (const col of t.columns) {
       const colName = col.column_name as string;
       if (!colName.endsWith("_id") || colName === "id") continue;
 
       const base = colName.slice(0, -3);
-      const lookupKey =
-        t.table_schema === "public" ? base : `${t.table_schema}.${base}`;
 
-      // Direct match
-      if (tableNames.has(lookupKey)) {
-        inferred.push({
-          table_schema: t.table_schema,
-          table_name: t.table_name,
-          column_name: colName,
-          foreign_table_schema: t.table_schema,
-          foreign_table_name: base,
-          foreign_column_name: "id",
-          inferred: true,
-        });
-        continue;
-      }
-
-      // Try plural
-      if (tableNamesPlural.has(lookupKey + "s")) {
-        inferred.push({
-          table_schema: t.table_schema,
-          table_name: t.table_name,
-          column_name: colName,
-          foreign_table_schema: t.table_schema,
-          foreign_table_name: base + "s",
-          foreign_column_name: "id",
-          inferred: true,
-        });
-        continue;
-      }
-      if (tableNamesPlural.has(lookupKey + "es")) {
-        inferred.push({
-          table_schema: t.table_schema,
-          table_name: t.table_name,
-          column_name: colName,
-          foreign_table_schema: t.table_schema,
-          foreign_table_name: base + "es",
-          foreign_column_name: "id",
-          inferred: true,
-        });
-        continue;
-      }
-
-      // Try singular (for base already in plural form)
-      const singular = tableNamesSingular.get(base);
-      if (singular) {
-        const [fkSchema, fkName] = singular.includes(".")
-          ? singular.split(".", 2)
-          : [t.table_schema, singular];
-        inferred.push({
-          table_schema: t.table_schema,
-          table_name: t.table_name,
-          column_name: colName,
-          foreign_table_schema: fkSchema,
-          foreign_table_name: fkName,
-          foreign_column_name: "id",
-          inferred: true,
-        });
-        continue;
+      for (const candidate of tables) {
+        const cName = candidate.table_name;
+        if (
+          cName === base ||
+          cName === base + "s" ||
+          cName === base + "es" ||
+          (base.endsWith("y") && cName === base.slice(0, -1) + "ies")
+        ) {
+          inferred.push({
+            table_schema: schema,
+            table_name: t.table_name,
+            column_name: colName,
+            foreign_table_schema: candidate.table_schema,
+            foreign_table_name: candidate.table_name,
+            foreign_column_name: "id",
+            inferred: true,
+          });
+          break;
+        }
       }
     }
   }
